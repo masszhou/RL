@@ -44,9 +44,6 @@ class MCControl():
             old_Q = self.Q[state][actions[i]]
             self.Q[state][actions[i]] = old_Q + self.alpha * (np.sum(discounted_rewards[i::]) - old_Q)
 
-        # update epsilon after learning from one episode
-        self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
-
     def choose_action(self, state):
         """
         choose action with epsilon greedy
@@ -65,6 +62,9 @@ class MCControl():
 
     def reset_epislon(self):
         self.epsilon = self.epsilon_start
+
+    def decay_epislon(self):
+        self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
 
 
 def interact(env, agent, max_steps_episode=500, num_episodes=20000):
@@ -96,6 +96,8 @@ def interact(env, agent, max_steps_episode=500, num_episodes=20000):
             avg_rewards.append(succ_scores)
 
         agent.update(episode)
+        agent.decay_epislon()
+
         pbar.set_description('episode %i' % i_episode)
         pbar.update()
 
