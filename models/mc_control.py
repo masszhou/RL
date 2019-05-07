@@ -9,7 +9,7 @@ class MCControl():
     """
     for episodic tasks, learn from each episode
     """
-    def __init__(self):
+    def __init__(self, nA):
         # discount factor for rewards
         self.gamma = 1.0
         # greedy factor, 1->random, 0->optimal
@@ -20,7 +20,7 @@ class MCControl():
         # learning rate
         self.alpha = 0.02
         # action space size
-        self.nA = 2
+        self.nA = nA
         # action space
         self.action_space = list(range(self.nA))
         # Q table
@@ -146,6 +146,6 @@ if __name__ == "__main__":
 
 
     env = gym.make('Blackjack-v0')
-    agent = MCControl()
+    agent = MCControl(env.action_space.n)
     agent, avg_rewards = interact(env, agent, num_episodes=200000)
     plot_policy(agent.get_policy())
