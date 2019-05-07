@@ -2,6 +2,7 @@ import numpy as np
 from collections import defaultdict
 from collections import deque
 import sys
+from tqdm import tqdm
 
 
 class MCControl():
@@ -9,17 +10,26 @@ class MCControl():
     for episodic tasks, learn from each episode
     """
     def __init__(self):
-        self.gamma = 1.0  # discount factor for rewards
-        self.epsilon = 1.0  # greedy factor, 1->random, 0->optimal
+        # discount factor for rewards
+        self.gamma = 1.0
+        # greedy factor, 1->random, 0->optimal
+        self.epsilon = 1.0
         self.epsilon_start = 1.0
         self.epsilon_decay = 0.9999
         self.epsilon_min = 0.05
-        self.alpha = 0.02  # learning rate
-        self.nA = 2  # action space size
-        self.action_space = list(range(self.nA))  # action space
-        self.Q = defaultdict(lambda: np.zeros(self.nA))  # Q table
+        # learning rate
+        self.alpha = 0.02
+        # action space size
+        self.nA = 2
+        # action space
+        self.action_space = list(range(self.nA))
+        # Q table
+        self.Q = defaultdict(lambda: np.zeros(self.nA))
 
     def update(self, episode):
+        """
+        updates the action-value function estimate using the most recent episode
+        """
         # episode, [[s,a,r],[s,a,r],...]
         # update Q table with accumulated rewards from a given episode
 
@@ -34,33 +44,36 @@ class MCControl():
             old_Q = self.Q[state][actions[i]]
             self.Q[state][actions[i]] = old_Q + self.alpha * (np.sum(discounted_rewards[i::]) - old_Q)
 
+        # update epsilon after learning from one episode
+        self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
+
     def choose_action(self, state):
+        """
+        choose action with epsilon greedy
+        """
         action_value = self.Q[state]
         prob_list = np.ones(self.nA) * self.epsilon / self.nA  # eps to choose others
         prob_list[np.argmax(action_value)] = 1 - (self.nA - 1) / self.nA * self.epsilon  # 1-eps to choose best
         action = np.random.choice(self.action_space, p=prob_list)
         return action
 
-    def policy(self):
+    def get_policy(self):
         return dict((k, np.argmax(v)) for k, v in self.Q.items())
 
-    def Qtable(self):
+    def get_Qtable(self):
         return self.Q
 
-    def learn_from_episodes(self, generate_episode, n_episodes=50000):
+    def reset_epislon(self):
         self.epsilon = self.epsilon_start
-        for i_episode in range(n_episodes):
-            print("\rEpisode {}/{}.".format(i_episode, n_episodes), end="")
-            sys.stdout.flush()
-            self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
-            episode = generate_episode(self.choose_action)
-            self.update(episode)
 
 
-def interact(env, agent, max_steps_episode=100, num_episodes=20000, smooth_window=10):
+def interact(env, agent, max_steps_episode=500, num_episodes=20000):
     avg_rewards = deque(maxlen=num_episodes)  # measure performance
-    state = env.reset()
+    pbar = tqdm(total=num_episodes)
+
     for i_episode in range(num_episodes):
+        state = env.reset()
+
         episode = []
         step_counter = 0
         sum_reward = 0
@@ -71,8 +84,8 @@ def interact(env, agent, max_steps_episode=100, num_episodes=20000, smooth_windo
             episode.append([state, action, reward])
             sum_reward += reward
             step_counter += 1
-
             state = state_next
+
             if done is True:
                 succ_scores.append(np.mean(sum_reward))
                 break
@@ -83,51 +96,17 @@ def interact(env, agent, max_steps_episode=100, num_episodes=20000, smooth_windo
             avg_rewards.append(succ_scores)
 
         agent.update(episode)
+        pbar.set_description('episode %i' % i_episode)
+        pbar.update()
 
+    pbar.close()
     return agent, avg_rewards
 
 
 if __name__ == "__main__":
     import gym
-    from mpl_toolkits.mplot3d import Axes3D
     import matplotlib.pyplot as plt
     from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-    env = gym.make('Blackjack-v0')
-    agent = MCControl()
-    agent, best_avg_reward = interact(env, agent, num_episodes=500000)
-
-
-    def plot_blackjack_values(V):
-
-        def get_Z(x, y, usable_ace):
-            if (x, y, usable_ace) in V:
-                return V[x, y, usable_ace]
-            else:
-                return 0
-
-        def get_figure(usable_ace, ax):
-            x_range = np.arange(11, 22)
-            y_range = np.arange(1, 11)
-            X, Y = np.meshgrid(x_range, y_range)
-
-            Z = np.array([get_Z(x, y, usable_ace) for x, y in zip(np.ravel(X), np.ravel(Y))]).reshape(X.shape)
-
-            surf = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, cmap=plt.cm.coolwarm, vmin=-1.0, vmax=1.0)
-            ax.set_xlabel('Player\'s Current Sum')
-            ax.set_ylabel('Dealer\'s Showing Card')
-            ax.set_zlabel('State Value')
-            ax.view_init(ax.elev, -120)
-
-        fig = plt.figure(figsize=(20, 20))
-        ax = fig.add_subplot(211, projection='3d')
-        ax.set_title('Usable Ace')
-        get_figure(True, ax)
-        ax = fig.add_subplot(212, projection='3d')
-        ax.set_title('No Usable Ace')
-        get_figure(False, ax)
-        plt.show()
-
 
     def plot_policy(policy):
 
@@ -164,7 +143,7 @@ if __name__ == "__main__":
         plt.show()
 
 
-    V_to_plot = dict((k, (k[0] > 18) * (np.dot([0.8, 0.2], v)) + (k[0] <= 18) * (np.dot([0.2, 0.8], v))) \
-                     for k, v in agent.Q.items())
-    # plot the state-value function
-    plot_blackjack_values(V_to_plot)
+    env = gym.make('Blackjack-v0')
+    agent = MCControl()
+    agent, avg_rewards = interact(env, agent, num_episodes=200000)
+    plot_policy(agent.get_policy())
