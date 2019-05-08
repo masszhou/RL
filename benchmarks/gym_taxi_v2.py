@@ -32,3 +32,5 @@ print("\nExpected SARSA total time = ", time.time() - start)
 plt.plot(np.array(avg_rewards_sarsa), c="r")
 plt.plot(np.array(avg_rewards_maxsarsa), c="g")
 plt.plot(np.array(avg_rewards_exppsarsa), c="b")
+
+plt.show()
