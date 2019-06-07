@@ -10,7 +10,7 @@ class MCControl():
     for episodic tasks, learn from each episode
     """
     def __init__(self, nA):
-        # discount factor for rewards
+        # discount factor for score_log
         self.gamma = 1.0
         # greedy factor, 1->random, 0->optimal
         self.epsilon = 1.0
@@ -31,7 +31,7 @@ class MCControl():
         updates the action-value function estimate using the most recent episode
         """
         # episode, [[s,a,r],[s,a,r],...]
-        # update Q table with accumulated rewards from a given episode
+        # update Q table with accumulated score_log from a given episode
 
         states, actions, rewards = zip(*episode)
         discount = [self.gamma ** i for i in range(len(rewards))]
@@ -40,7 +40,7 @@ class MCControl():
 
         for i, state in enumerate(states):
             # sequence, index from start to end, i=0 is start, -1 is end
-            # sum rewards from step i to the end
+            # sum score_log from step i to the end
             old_Q = self.Q[state][actions[i]]
             self.Q[state][actions[i]] = old_Q + self.alpha * (np.sum(discounted_rewards[i::]) - old_Q)
 
