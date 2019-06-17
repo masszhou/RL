@@ -244,7 +244,7 @@ if __name__ == "__main__":
         state = env.reset()
         steps = 0
         while True:
-            #env.render()
+            env.render()
             action = agent.act(state, eps)
             next_state, reward, done, info = env.step(action)
             # the smaller theta and closer to center the better
@@ -276,6 +276,6 @@ if __name__ == "__main__":
                                                                         round(eps, 2),
                                                                         agent.learn_step_counter,
                                                                         steps))
-        debug_print(sess=agent.sess)
+        # debug_print(sess=agent.sess)
 
     agent.save()
