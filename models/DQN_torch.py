@@ -30,8 +30,7 @@ class DeepQNetwork:
                  batch_size=64,
                  memory_size=int(1e5),
                  model_save_path="./models/",
-                 log_save_path="./logs/",
-                 output_graph=True):
+                 log_save_path="./logs/"):
 
         # super(DeepQNetwork, self).__init__()
         # ------------------------------------------
@@ -48,6 +47,14 @@ class DeepQNetwork:
         self.memory = deque(maxlen=self.memory_size)
         # total learning step
         self.learn_step_counter = 0
+
+        self.hyperparameters = {"lr": learning_rate,
+                                "gamma": gamma,
+                                "update_every": update_every,
+                                "memory_size": memory_size,
+                                "batch_size": batch_size,
+                                "optimizer": "adam",
+                                "loss_fn": "mse"}
 
         # ------------------------------------------
         # model definition
@@ -101,7 +108,6 @@ class DeepQNetwork:
 
         Q_next = self.target_net(s_next_sample).detach()
         Q_target = r_sample + self.gamma * torch.max(Q_next, 1)[0].view(-1, 1)
-        # Q_target = r_sample + self.gamma * torch.max(self.target_net(s_sample)) * (1 - done_sample)
 
         Q_policy = self.policy_net(s_sample).gather(1, a_sample.long())  # index must be Long Int
 
@@ -111,6 +117,29 @@ class DeepQNetwork:
         loss.backward()
         self.optimizer.step()
         self.learn_step_counter += 1
+
+    def save(self, save_path=None):
+        if save_path is None:
+            save_path = "./models/DQN_torch.pth"
+        # save optimizer for continuous training, since here adam used.
+        all_data = dict(
+            optimizer=self.optimizer.state_dict(),
+            policy_net=self.policy_net.state_dict(),
+            target_net=self.target_net.state_dict(),
+            hyperparameters=self.hyperparameters,
+            trainsteps=self.learn_step_counter
+        )
+        torch.save(all_data, save_path)
+
+    def restore(self, restore_path=None):
+        if restore_path is None:
+            restore_path = "./models/DQN_torch.pth"
+        all_data = torch.load(restore_path)
+        self.policy_net.load_state_dict(all_data["policy_net"])
+        self.target_net.load_state_dict(all_data["target_net"])
+        self.optimizer.load_state_dict(all_data["optimizer"])
+        self.hyperparameters=all_data["hyperparameters"]
+        self.learn_step_counter=all_data["trainsteps"]
 
 
 if __name__ == "__main__":
