@@ -32,7 +32,6 @@ class DeepQNetwork:
                  model_save_path="./models/",
                  log_save_path="./logs/"):
 
-        # super(DeepQNetwork, self).__init__()
         # ------------------------------------------
         # model parameters
         # ------------------------------------------
