@@ -37,7 +37,7 @@ class Actor(nn.Module):
     def forward(self, state):
         net = F.relu(self.fc1(state))
         net = F.relu(self.fc2(net))
-        net = F.tanh(self.fc3(net))
+        net = torch.tanh(self.fc3(net))
         return net
 
 

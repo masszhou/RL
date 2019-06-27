@@ -8,8 +8,8 @@ import torch.optim as optim
 import copy
 import torchsummary
 
-from policy_factory import Actor
-from policy_factory import Critic
+from networks import Actor
+from networks import Critic
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
