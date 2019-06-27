@@ -21,9 +21,9 @@ class DDPG:
                  memory_size=int(1e5), # replay buffer size
                  batch_size=128,       # minibatch size
                  gamma=0.99,           # discount factor
-                 tau = 1e-3,           # for soft update of target parameters
+                 tau=1e-3,           # for soft update of target parameters
                  lr_actor=1e-4,
-                 lr_critic=3e-4,
+                 lr_critic=1e-3,
                  random_seed=2):
         self.state_size = state_size
         self.action_size = action_size
@@ -88,7 +88,6 @@ class DDPG:
         # because actor suppose to output action which max Q(s)
         #
         # loss = mse(Q_local - Q_target)
-
         best_actions = self.actor_target(next_states)  # supposed to be best actions, however
         Q_next_max = self.critic_target(next_states, best_actions)
         Q_target = rewards + gamma * Q_next_max * (1 - dones)
@@ -140,8 +139,10 @@ class DDPG:
 
 
 class OUNoise:
-    """Ornstein-Uhlenbeck process."""
-
+    """
+    Ornstein-Uhlenbeck process.
+    explore around mu
+    """
     def __init__(self, size, seed, mu=0., theta=0.15, sigma=0.2):
         """Initialize parameters and noise process."""
         self.mu = mu * np.ones(size)
