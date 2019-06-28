@@ -55,7 +55,7 @@ class DDPG:
 
     def act(self, state, add_noise=True):
         state = torch.from_numpy(state).float().to(device)
-        self.actor_local.eval()
+        self.actor_local.eval()  # must set to eval mode, since BatchNorm used
         with torch.no_grad():
             action = self.actor_local(state).cpu().data.numpy()
         self.actor_local.train()
