@@ -4,7 +4,7 @@
 ### DQN
 * Unity Banana Navigation
 <img src="./imgs/banana.png"  width="300" />
-![banana](https://user-images.githubusercontent.com/10624937/42135619-d90f2f28-7d12-11e8-8823-82b970a54d7e.gif)
+<img src="https://user-images.githubusercontent.com/10624937/42135619-d90f2f28-7d12-11e8-8823-82b970a54d7e.gif"  width="300" />
 
 ### DDPG
 * 2D arm tracking object
