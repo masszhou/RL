@@ -1,6 +1,9 @@
 * short [summary](./documents/value-based.pdf) about value-based method
 
-# Results
+# Solved Results in this Repo
+### Gym
+* cartpole
+
 ### DQN
 * Unity Banana Navigation
 <img src="./imgs/banana.png"  width="300" />
