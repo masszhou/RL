@@ -4,36 +4,14 @@
 # learned from 2-bar linkage example, https://github.com/MorvanZhou/train-robot-arm-from-scratch
 
 import numpy as np
+from collections import deque
 import pyglet
-
-
-def cbox_to_bbox(cbox):
-    """
-    convert center box definition to bounding box definition
-    :param cbox: (x_center, y_center, width, height
-    :return: bbox: (x_topleft, y_topleft, x_bottomright, y_bottomright)
-    """
-    bbox = np.zeros(4)
-    bbox[0] = cbox[0] - cbox[2] / 2
-    bbox[1] = cbox[1] - cbox[3] / 2
-    bbox[2] = cbox[0] + cbox[2] / 2
-    bbox[3] = cbox[1] + cbox[3] / 2
-    return bbox
-
-
-def bbox_to_cbox(bbox):
-    cbox = np.zeros(4)
-    cbox[0] = (bbox[0] + bbox[2]) / 2
-    cbox[1] = (bbox[1] + bbox[3]) / 2
-    cbox[2] = bbox[2] - bbox[0]
-    cbox[3] = bbox[3] - bbox[1]
-    return cbox
 
 
 class Viewer(pyglet.window.Window):
 
     def __init__(self,
-                 goal_bbox,
+                 goal_bbox,   # reference
                  n_bars=2,
                  bar_width=10,
                  canvas_width=400,
@@ -52,6 +30,7 @@ class Viewer(pyglet.window.Window):
         # display whole batch at once
         self.batch = pyglet.graphics.Batch()
         # add target box
+        self.goal_bbox = goal_bbox
         self.goal = self.batch.add(
             4, pyglet.gl.GL_QUADS, None,    # 4 corners
             ('v2f', [goal_bbox[0], goal_bbox[1],
@@ -70,11 +49,24 @@ class Viewer(pyglet.window.Window):
                                                      260, 250]),            # x4, y4
                                             ('c3B', (249, 86, 86) * 4,)))    # color
 
+        self.frame_buffer = deque(maxlen=400)
+        self.frame_counter = 0
+
     def on_draw(self):
+        self.frame_counter += 1
         self.clear()
         self.batch.draw()
 
-    def update(self, arm_info, goal_bbox):
+        if self.frame_counter % 100 == 0:
+            # return_rgb_array
+            buffer = pyglet.image.get_buffer_manager().get_color_buffer()
+            image_data = buffer.get_image_data()
+            arr = np.fromstring(image_data.data, dtype=np.uint8, sep='')
+            arr = arr.reshape(buffer.height, buffer.width, 4)
+            arr = arr[::-1, :, 0:3]
+            self.frame_buffer.append(arr)
+
+    def update(self, arm_info):
         """
         :param bar_state: (x1,y1,x2,y2,r,theta)
         :return:
@@ -112,10 +104,10 @@ class Viewer(pyglet.window.Window):
             self.bars[i].vertices = [p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y]
 
         # update goal
-        self.goal.vertices = [goal_bbox[0], goal_bbox[1],
-                              goal_bbox[0], goal_bbox[3],
-                              goal_bbox[2], goal_bbox[3],
-                              goal_bbox[2], goal_bbox[1]]
+        self.goal.vertices = [self.goal_bbox[0], self.goal_bbox[1],
+                              self.goal_bbox[0], self.goal_bbox[3],
+                              self.goal_bbox[2], self.goal_bbox[3],
+                              self.goal_bbox[2], self.goal_bbox[1]]
 
         # render
         self.switch_to()
@@ -123,12 +115,28 @@ class Viewer(pyglet.window.Window):
         self.dispatch_event('on_draw')
         self.flip()
 
+    # convert the mouse coordinate to goal's coordinate
+    def on_mouse_motion(self, x, y, dx, dy):
+        self.goal_bbox[0] = x - 20
+        self.goal_bbox[1] = y - 20
+        self.goal_bbox[2] = x + 20
+        self.goal_bbox[3] = y + 20
+
+    def on_key_press(self, symbol, modifiers):
+        if symbol == pyglet.window.key.S:
+            try:
+                import imageio
+                imageio.mimsave('./arm2d.gif', self.frame_buffer)
+                print("GIF animation saved")
+            except ImportError as error:
+                print("need imageio to generate GIF animation")
+
 
 class ArmEnv(object):
     def __init__(self,
                  n_bar=2,
                  goal=None,
-                 bar_length = 100,
+                 bar_length=100,
                  canvas_width=400,
                  canvas_height=400):
 
@@ -153,12 +161,12 @@ class ArmEnv(object):
         self.origin = np.array([canvas_width / 2.0, canvas_height / 2.0])  # x,y the parent rotation center of first bar
 
         if goal is None:
-            self.goal_cbox = np.array([100, 100, 40, 40], dtype=np.float)  # blue box bbox=(x,y,w,h)
+            self.goal_bbox = np.array([80, 80, 120, 120], dtype=np.float)
         else:
-            self.goal_cbox = goal
-        self.goal_bbox = cbox_to_bbox(self.goal_cbox)
+            self.goal_bbox = goal
 
     def step(self, action):
+
         done = False
         action = np.clip(action, *self.action_bound)
         self.arm_info[:, 0] += action * self.dt
@@ -187,11 +195,14 @@ class ArmEnv(object):
         return s, reward, done, {}
 
     def reset(self):
-        self.goal_cbox = np.array([np.random.rand()*400,
-                                   np.random.rand()*400,
-                                   40, 40], dtype=np.float)  # blue box bbox=(x,y,w,h)
-        self.goal_bbox = cbox_to_bbox(self.goal_cbox)
-        self.arm_info[:, 0] = 2 * np.pi * np.random.rand(2)
+        x = 20 + np.random.rand() * 360
+        y = 20 + np.random.rand() * 360
+        self.goal_bbox[0] = x - 20
+        self.goal_bbox[1] = y - 20
+        self.goal_bbox[2] = x + 20
+        self.goal_bbox[3] = y + 20
+
+        self.arm_info[:, 0] = 2 * np.pi * np.random.rand(self.n_bar)
         # polar to cartesian
         self.update_arm_coordinates()
 
@@ -208,11 +219,11 @@ class ArmEnv(object):
 
     def render(self):
         if self.viewer is None:
-            self.viewer = Viewer(self.goal_bbox, n_bars=2)
-        self.viewer.update(self.arm_info, self.goal_bbox)
+            self.viewer = Viewer(self.goal_bbox, n_bars=self.n_bar)
+        self.viewer.update(self.arm_info)
 
     def sample_rand_action(self):
-        return np.random.rand(2)-0.5    # two radians
+        return np.random.rand(self.action_size)-0.5    # two radians
 
     def update_arm_coordinates(self):
         """
@@ -237,16 +248,11 @@ class ArmEnv(object):
 
         dist = (self.goal_bbox[:2] - self.bar_coordinates[:, 2:2+2]) / 400
 
-        # dist1 = [(self.goal_cbox[0] - self.bar_coordinates[0][2]) / 400,
-        #          (self.goal_cbox[1] - self.bar_coordinates[0][3]) / 400]
-        # dist2 = [(self.goal_cbox[0] - self.bar_coordinates[1][2]) / 400,
-        #          (self.goal_cbox[1] - self.bar_coordinates[1][3]) / 400]
-
         return dist
 
 
 if __name__ == '__main__':
-    env = ArmEnv()
+    env = ArmEnv(n_bar=2, bar_length=80)
     while True:
         env.render()
         state, reward, done, info = env.step(env.sample_rand_action())
