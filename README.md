@@ -36,8 +36,8 @@ Box2D dependency, install [discussion](https://github.com/openai/gym/issues/100)
 sudo apt-get install swig
 workon your_venv
 cd Box2D-py
-pip setup.py clean
-pip setup.py install
+python setup.py clean
+python setup.py install
 ```
 
 1.3 Atari
